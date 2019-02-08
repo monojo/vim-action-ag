@@ -44,10 +44,47 @@ function! s:Ag(mode) abort
   let @@ = reg_save
 endfunction
 
+" make search feels good for large code base
+" use src_file for files used in compilation
+function! s:AgSrc(mode) abort
+    " preserver @@ register
+    let reg_save = @@
+
+    " copy selected text to @@ register
+    if a:mode ==# 'v' || a:mode ==# ''
+        silent exe "normal! `<v`>y"
+    elseif a:mode ==# 'char'
+        silent exe "normal! `[v`]y"
+    else
+        return
+    endif
+
+    " prepare for search highlight
+    let escaped_for_vim = escape(@@, '/\')
+    exe ":let @/='\\V".escaped_for_vim."'"
+
+    " escape special chars,
+    " % is file name in vim we need to escape that first
+    " # is secial in ag
+    let escaped_for_ag = escape(@@, '%#')
+    let escaped_for_ag = escape(escaped_for_ag, g:vim_action_ag_escape_chars)
+
+    " execute Ag command
+    " '!' is used to NOT jump to the first match
+    " ZX: use src_file
+    exe ":Ag! -w" "'".escaped_for_ag."'" "$(cat src_file)"
+
+    " go to the first search match
+    normal! n
+
+    " recover @@ register
+    let @@ = reg_save
+endfunction
 " NOTE: set hlsearch does not work in a function
-vnoremap <silent> <Plug>AgActionVisual :<C-U>call <SID>Ag(visualmode())<CR>
+vnoremap <silent> <Plug>AgActionVisual :<C-U>call <SID>Ag(0, visualmode())<CR>
 nnoremap <silent> <Plug>AgAction       :set hlsearch<CR>:<C-U>set opfunc=<SID>Ag<CR>g@
 nnoremap <silent> <Plug>AgActionWord   :set hlsearch<CR>:<C-U>set opfunc=<SID>Ag<CR>g@iw
+nnoremap <silent> <Plug>AgActionSrc   :set hlsearch<CR>:<C-U>set opfunc=<SID>AgSrc<CR>g@iw
 
 vmap gag <Plug>AgActionVisual
 nmap gag <Plug>AgAction
